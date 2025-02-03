@@ -3,16 +3,25 @@ const usermodel = require("../models/userModel");
 exports.updateUserProfile = async (req, res) => {
   try {
     const id = req.params.id;
-    const data = await usermodel.findByIdAndUpdate(
-      id,
-      req.body,
-      { isBlocked: true, isDeleted: true },
-      { new: true }
-    );
-    if (data === null) {
+    let { name, password } = req.body;
+    if (password) {
+      const passwordHash = await universalFunctions.encryptData(password);
+      body.password = passwordHash;
+    }
+
+    let updateUser = {
+      name,
+      password: body?.password,
+    };
+    
+    let body = req.body;
+    const userdata = await usermodel.findByIdAndUpdate(id, updateUser, {
+      new: true,
+    });
+    if (userdata === null) {
       return res.status(401).json({ status: "id not found" });
     }
-    res.status(200).json({ status: "sucess", data });
+    res.status(200).json({ status: "sucess", userdata });
   } catch (error) {
     res.status(401).json({ error: error.message });
   }
@@ -20,11 +29,28 @@ exports.updateUserProfile = async (req, res) => {
 
 exports.getAllUser = async (req, res) => {
   try {
+    let { name, search } = req.query;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
+
+    console.log(req.user);
+    let matchConditions = {
+      isDeleted: false,
+    };
+
+    if (name) {
+      matchConditions.name = name;
+    }
+
+    if (search) {
+      matchConditions.$or = [
+        { email: { $regex: search, $options: "i" } },
+      ];
+    }
+
     const documents = await usermodel
-      .find({ isBlocked: false, isDeleted: false })
+      .find(matchConditions)
       .skip((page - 1) * limit)
       .limit(limit);
     res.status(200).json({ status: "doctor List", documents });
@@ -36,12 +62,23 @@ exports.getAllUser = async (req, res) => {
 exports.getUserById = async (req, res) => {
   try {
     const id = req.params.id;
-    const data = await usermodel.findById(id, {
-      isBlocked: false,
-      isDeleted: false,
-    });
 
-    res.status(200).json({ status: "success", data });
+    let userCriteria = {
+      _id: id,
+      isDeleted: false,
+    };
+
+    const users = await doctorModel.findById(userCriteria)
+
+    if (!users) {
+        throw new errors.NotFound(messages.DATA_NOT_FOUND);
+    }
+
+    let response = {
+        data: users
+    };
+
+    res.status(200).send({ message: messages.SUCCESS, response });
   } catch (error) {
     console.log(error);
   }
@@ -50,14 +87,12 @@ exports.getUserById = async (req, res) => {
 exports.deleteUserById = async (req, res) => {
   try {
     const id = req.params.id;
-    const token = req.headers.authorization.split(" ")[1];
-    let decode = jwt.verify(token, config.SECRET);
-    let role = decode.role;
+    let role = req.user.role;
     if (role == "patient") {
       return res.status(401).json({ status: "Admin not found" });
     }
 
-    const data = await usermodel.findByIdAndUpdate(id, {
+    const userdata = await usermodel.findByIdAndUpdate(id, {
       isBlocked: true,
       isDeleted: true,
     });

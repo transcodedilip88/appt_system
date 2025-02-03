@@ -2,17 +2,37 @@ const doctorModel = require("../models/doctorModel");
 const bcrypt = require("bcrypt");
 const nodemailer = require("nodemailer");
 const jwt = require("jsonwebtoken");
+const { errors } = require("../utils");
+const { mongoService, mailService } = require("../services");
+let messages = require("../config/messages.json");
 const { google } = require("googleapis");
 const { generateToken, verifyToken } = require("../middleware/authentication");
 const config = require("../config");
+const { name } = require("ejs");
 
 exports.addDoctor = async (req, res) => {
   try {
-    let { name, specialization, email, phone, availability } = req.body;
+    let {
+      name,
+      specialization,
+      email,
+      phone,
+      availability,
+      isBlocked,
+      isDeleted,
+    } = req.body;
 
-    let checkEmail = await doctorModel.findOne({ email: email });
-    if (checkEmail) {
-      return res.status(401).json({ status: "doctor already Exists" });
+    const checkIfAlreadyExists = await mongoService.getFirstMatch(
+      doctorModel,
+      {
+        $or: [{ email: { $regex: email, $options: "i" } }],
+      },
+      {},
+      { lean: true }
+    );
+
+    if (checkIfAlreadyExists) {
+      res.status(400).json({ status: "email alredy difined" });
     }
 
     const newDoctor = {
@@ -21,21 +41,22 @@ exports.addDoctor = async (req, res) => {
       email,
       phone,
       availability,
+      isBlocked,
+      isDeleted,
     };
 
-    const data = await doctorModel.create(newDoctor);
+    const doctors = await mongoService.createData(doctorModel, newDoctor);
 
     const playload = {
-      name: data.name,
-      specialization: data.specialization,
-      email: data.email,
-      phone: data.phone,
-      availability: data.availability,
+      id: doctors.id,
+      email: doctors.email,
     };
 
     const token = generateToken(playload);
 
-    res.status(200).json({ status: "success", doctordata: data, token: token });
+    res
+      .status(200)
+      .json({ status: "success", doctordata: doctors, token: token });
   } catch (error) {
     console.log(error);
   }
@@ -43,14 +64,41 @@ exports.addDoctor = async (req, res) => {
 
 exports.getAllDoctor = async (req, res) => {
   try {
+    let { specialization, search, startTime, endTime } = req.query;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
-    const documents = await doctorModel
-      .find()
+    let matchConditions = {
+      isDeleted: false,
+      endTime,
+      startTime,
+    };
+
+    if (specialization) {
+      matchConditions.specialization = specialization;
+    }
+
+    if (search) {
+      matchConditions.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    if (startTime) {
+      matchConditions.startTime = { $gte: new Date(startTime) };
+    }
+
+    if (endTime) {
+      matchConditions.endTime = { $lte: new Date(endTime) };
+    }
+
+    const doctors = await doctorModel
+      .find(matchConditions)
       .skip((page - 1) * limit)
       .limit(limit);
-    res.status(200).json({ status: "doctor List", documents });
+    const d = await doctorModel.find();
+    res.status(200).json({ status: "doctor List", doctors });
   } catch (error) {
     console.log(error);
   }
@@ -59,9 +107,23 @@ exports.getAllDoctor = async (req, res) => {
 exports.getDoctorById = async (req, res) => {
   try {
     const id = req.params.id;
-    const data = await doctorModel.findById(id);
 
-    res.status(200).json({ status: "success", data });
+    let doctorCriteria = {
+      _id: id,
+      isDeleted: false,
+    };
+
+    const doctors = await doctorModel.findById(doctorCriteria);
+
+    if (!doctors) {
+      throw new errors.NotFound(messages.DATA_NOT_FOUND);
+    }
+
+    let response = {
+      data: doctors,
+    };
+
+    res.status(200).send({ message: messages.SUCCESS, response });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -69,36 +131,43 @@ exports.getDoctorById = async (req, res) => {
 
 exports.updateDoctorById = async (req, res) => {
   try {
-    const id = req.params.id;
+    let { name, specialization, phone, availability } = req.body;
 
-    const token = req.headers.authorization.split(" ")[1];
-    let decode = jwt.verify(token, config.SECRET);
-    let role = decode.role;
+    const updateDoctor = {
+      name,
+      specialization,
+      phone,
+      availability,
+    };
+
+    const id = req.params.id;
+    let role = req.user.role;
 
     if (!role == "admin") {
       return res.status(401).json({ status: "Admin not found" });
     }
 
-    const data = await doctorModel.findByIdAndUpdate(id, req.body, {
+    const doctors = await doctorModel.findByIdAndUpdate(id, updateDoctor, {
       new: true,
     });
 
-    res.status(200).json({ status: "update success", data });
+    res.status(200).json({ status: "update success", doctors });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
+
 exports.deleteDoctorById = async (req, res) => {
   try {
     const id = req.params.id;
-    const token = req.headers.authorization.split(" ")[1];
-    let decode = jwt.verify(token, config.SECRET);
-    let role = decode.role;
+    let role = req.user.role;
     if (!role == "admin") {
       return res.status(401).json({ status: "Admin not found" });
     }
 
-    const data = await doctorModel.findByIdAndDelete(id);
+    const doctors = await doctorModel.findByIdAndUpdate(id, {
+      isDeleted: true,
+    });
     res.status(200).json({ status: "delete success" });
   } catch (error) {
     res.status(500).json({ error: error.message });

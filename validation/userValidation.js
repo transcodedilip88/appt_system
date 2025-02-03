@@ -4,6 +4,8 @@ const updateUserProfile = async (req, res, next) => {
   try {
     const schema = Joi.object({
       name: Joi.string().optional(),
+      isBlocked: Joi.boolean().optional(),
+      isDeleted: Joi.boolean().optional(),
       password: Joi.string()
         .pattern(new RegExp("^[a-zA-Z0-9]{3,30}$"))
         .optional(),
@@ -20,7 +22,10 @@ const getAllUser = async (req, res, next) => {
     const schema = Joi.object({
       skip: Joi.number().optional(),
       limit: Joi.number().optional(),
-      search: Joi.number().optional(),
+      search: Joi.string().optional(),
+      name:Joi.string().optional(),
+      email:Joi.string().optional(),
+      phone:Joi.string().optional(),
     });
     req.query = await schema.validateAsync(req.query);
     next();
@@ -59,30 +64,3 @@ module.exports = {
   deleteUserById,
   updateUserProfile,
 };
-
-
-// [
-//   {
-//     $match: {
-//       patient: ObjectId(
-//         "67985cacc322e051143d2eb3"
-//       )
-//     }
-//   },
-//   {
-//     $lookup: {
-//       from: "patients",
-//       localField: "patient",
-//       foreignField: "_id",
-//       as: "patientData"
-//     }
-//   },
-//   {
-//     $lookup: {
-//       from: "doctors",
-//       localField: "doctor",
-//       foreignField: "_id",
-//       as: "doctorData"
-//     }
-//   }
-// ]

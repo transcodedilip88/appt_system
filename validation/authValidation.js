@@ -5,13 +5,12 @@ const register = async (req, res, next) => {
     const schema = Joi.object({
       name: Joi.string().required(),
       email: Joi.string().email().required(),
-      password: Joi.string()
-        .pattern(new RegExp("^[a-zA-Z0-9]{3,30}$"))
-        .required(),
-      phone: Joi.string()
-        .pattern(new RegExp("^[+]{1}(?:[0-9]){6,15}[0-9]{1}$"))
-        .required(),
-      role: Joi.string(),
+      password : Joi.string().pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#\$%\^&\*])(?=.{8,})/).optional().messages({ 'string.pattern.base': 'Password is not strong' }),
+      phone: Joi.object({
+          countryCode: Joi.string(),
+          mobileNumber: Joi.string()
+      }),
+      role : Joi.string(),
     });
     req.body = await schema.validateAsync(req.body);
     next();

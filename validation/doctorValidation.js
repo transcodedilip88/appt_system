@@ -5,9 +5,6 @@ const addDoctor = async (req, res, next) => {
     const schema = Joi.object({
       name: Joi.string().required(),
       email: Joi.string().email().required(),
-      password: Joi.string()
-        .pattern(new RegExp("^[a-zA-Z0-9]{3,30}$"))
-        .required(),
       specialization: Joi.string().required(),
       phone: Joi.string()
         .pattern(new RegExp("^[+]{1}(?:[0-9]){6,15}[0-9]{1}$"))
@@ -26,7 +23,12 @@ const getAllDoctor = async (req, res, next) => {
     const schema = Joi.object({
       skip: Joi.number().optional(),
       limit: Joi.number().optional(),
-      search: Joi.number().optional(),
+      search: Joi.string().optional(),
+      endTime:Joi.string().optional(),
+      startTime:Joi.string().optional(),
+      name:Joi.string().optional(),
+      email:Joi.string().optional(),
+      specialization:Joi.string().optional()
     });
     req.query = await schema.validateAsync(req.query);
     next();
@@ -52,12 +54,11 @@ const updateDoctorById = async (req, res, next) => {
     const schema = Joi.object({
       name: Joi.string().optional(),
       email: Joi.string().email().optional(),
-      password: Joi.string()
-        .pattern(new RegExp("^[a-zA-Z0-9]{3,30}$"))
-        .optional(),
       specialization: Joi.string().optional(),
       phone: Joi.string().optional(),
       availability: Joi.object().optional(),
+      isBlocked: Joi.boolean().optional(),
+      isDeleted: Joi.boolean().optional(),
     });
     req.body = await schema.validateAsync(req.body);
     next();

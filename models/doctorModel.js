@@ -14,6 +14,14 @@ const doctorSchema = new mongoose.Schema(
     phone: {
       type: String,
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+    isBlocked: {
+      type: Boolean,
+      default: false,
+    },
     availability: {
       day: { type: String },
       startTime: { type: String },

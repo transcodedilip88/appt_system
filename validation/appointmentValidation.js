@@ -5,7 +5,6 @@ const bookAppointment = async (req, res, next) => {
     const schema = Joi.object({
       doctor: Joi.string().required(),
       appointmentTime: Joi.date(),
-      status: Joi.string(),
     });
     req.body = await schema.validateAsync(req.body);
     next();

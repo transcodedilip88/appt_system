@@ -2,6 +2,7 @@ const appointmentModel = require("../models/appointmentModel");
 const userModel = require("../models/userModel");
 const doctorModel = require("../models/doctorModel");
 const bcrypt = require("bcrypt");
+const { mongoService, mailService } = require("../services");
 const jwt = require("jsonwebtoken");
 const { generateToken, verifyToken } = require("../middleware/authentication");
 const send_mail = require("../middleware/sendmail");
@@ -11,9 +12,7 @@ const { mongoose } = require("mongoose");
 exports.bookAppointment = async (req, res) => {
   try {
     let { doctor, appointmentTime, updatedby, createdBy } = req.body;
-    const token = req.headers.authorization.split(" ")[1];
-    const token_decode = jwt.verify(token, config.SECRET);
-    let patientId = token_decode.id;
+    let patientId = req.user.id;
     let currectTime = new Date();
     if (appointmentTime <= currectTime) {
       return res.status(401).json({ status: "please Enter Upcoming Time" });
@@ -27,13 +26,12 @@ exports.bookAppointment = async (req, res) => {
       updatedby: patientId,
     });
 
-    await newAppointment.save();
+    const appointments = await mongoService.createData(appointmentModel, newAppointment);
 
-    send_mail.Boocked_mail(token_decode.email);
-    // console.log('mail has been send ',decode.email);
+    send_mail.Boocked_mail(req.user.email);
     res.status(200).json({
       status: "Appointment has been Booked",
-      Appointment: newAppointment,
+      Appointment: appointments,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -42,18 +40,13 @@ exports.bookAppointment = async (req, res) => {
 
 exports.getAllAppointments = async (req, res) => {
   try {
-    let { patient, doctor, status, startTime, endTime } = req.query;
-    console.log(typeof endTime);
+    let { patient, doctor, status} = req.query;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
-    const token = req.headers.authorization.split(" ")[1];
-
-    const token_decode = jwt.verify(token, config.SECRET);
-
-    let patientId = token_decode.id;
-    let doctorId = token_decode.id;
-    let isAdmin = token_decode.role;
+    let patientId = req.user.id;
+    let doctorId = req.user.id;
+    let isAdmin = req.user.role;
 
     let patientExists = await userModel.findById(patientId);
     let doctorExists = await doctorModel.findById(doctorId);
@@ -73,18 +66,12 @@ exports.getAllAppointments = async (req, res) => {
     if (status) {
       matchConditions.status = status;
     }
-    if (startTime) {
-      matchConditions.startTime = startTime;
-    }
-    if (endTime) {
-      matchConditions.endTime = endTime;
-    }
-    const documents = await appointmentModel
+
+    const appointments = await appointmentModel
       .aggregate([
         {
           $match: matchConditions,
         },
-
         {
           $lookup: {
             from: "patients",
@@ -122,7 +109,7 @@ exports.getAllAppointments = async (req, res) => {
       .limit(limit);
     res
       .status(200)
-      .json({ status: "Appointments List", appointmnets: documents });
+      .json({ status: "Appointments List", appointmnets: appointments });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -131,8 +118,8 @@ exports.getAllAppointments = async (req, res) => {
 exports.getAppointmentById = async (req, res) => {
   try {
     const id = req.params.id;
-    let data = await appointmentModel.findById(id);
-    res.status(200).json({ status: "success", appointment: data });
+    let appointments = await appointmentModel.findById(id);
+    res.status(200).json({ status: "success", appointment: appointments });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -140,19 +127,20 @@ exports.getAppointmentById = async (req, res) => {
 
 exports.updateAppointment = async (req, res) => {
   try {
+    let {appointmentTime,status} = req.body
+    let body = req.body
     const id = req.params.id;
-    const data = await appointmentModel.findByIdAndUpdate(
+    const appointments = await appointmentModel.findByIdAndUpdate(
       id,
       { status: "completed" },
       { new: true },
-      req.body
-    );
-    let patientId = data.patient;
+      body
+    );  
+    let patientId = appointments.patient;
     const userId = await userModel.findOne(patientId);
 
     send_mail.appt_Updated(userId.email);
-    console.log("object", userId.email);
-    res.status(200).json({ status: "Update Sucess", newAppointment: data });
+    res.status(200).json({ status: "Update Sucess", newAppointment: appointments });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -161,19 +149,19 @@ exports.updateAppointment = async (req, res) => {
 exports.deleteAppointment = async (req, res) => {
   try {
     const id = req.params.id;
-    const data = await appointmentModel.findByIdAndUpdate(
+    const appointments = await appointmentModel.findByIdAndUpdate(
       id,
       { status: "cancelled" },
       { new: true }
     );
-    let patientId = data.patient;
+    let patientId = appointments.patient;
     const userId = await userModel.findOne(patientId);
 
     send_mail.appt_cancelled(userId.email);
     console.log("Appointment cancelled");
     res
       .status(200)
-      .json({ status: "Appointment cancelled", appointmentData: data });
+      .json({ status: "Appointment cancelled", appointmentData: appointments });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
