@@ -1,12 +1,8 @@
 const appointmentModel = require("../models/appointmentModel");
 const userModel = require("../models/userModel");
 const doctorModel = require("../models/doctorModel");
-const bcrypt = require("bcrypt");
 const { mongoService, mailService } = require("../services");
-const jwt = require("jsonwebtoken");
-const { generateToken, verifyToken } = require("../middleware/authentication");
 const send_mail = require("../middleware/sendmail");
-const config = require("../config");
 const { mongoose } = require("mongoose");
 
 exports.bookAppointment = async (req, res) => {
@@ -26,7 +22,10 @@ exports.bookAppointment = async (req, res) => {
       updatedby: patientId,
     });
 
-    const appointments = await mongoService.createData(appointmentModel, newAppointment);
+    const appointments = await mongoService.createData(
+      appointmentModel,
+      newAppointment
+    );
 
     send_mail.Boocked_mail(req.user.email);
     res.status(200).json({
@@ -40,7 +39,7 @@ exports.bookAppointment = async (req, res) => {
 
 exports.getAllAppointments = async (req, res) => {
   try {
-    let { patient, doctor, status} = req.query;
+    let { patient, doctor, status, startTime, endTime } = req.query;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
@@ -51,12 +50,19 @@ exports.getAllAppointments = async (req, res) => {
     let patientExists = await userModel.findById(patientId);
     let doctorExists = await doctorModel.findById(doctorId);
 
-    if (!patientExists && !doctorExists && !isAdmin == "admin") {
+    if (!patientExists && !doctorExists && isAdmin == "patient") {
       return res.status(401).json({ status: "Unuthorized" });
     }
 
-    let matchConditions = {};
-
+    let matchConditions = {
+    };
+    if (startTime && endTime) {
+      matchConditions.appointmentTime = {
+        $gte: new Date(startTime),
+        $lte: new Date(endTime),
+      };
+    }
+    console.log("<<<<", matchConditions);
     if (patient) {
       matchConditions.patient = new mongoose.Types.ObjectId(patient);
     }
@@ -117,6 +123,10 @@ exports.getAllAppointments = async (req, res) => {
 
 exports.getAppointmentById = async (req, res) => {
   try {
+    let isAdmin = req.user.role;
+    if (isAdmin === "patient") {
+      return res.status(400).json({ status: "admin not found" });
+    }
     const id = req.params.id;
     let appointments = await appointmentModel.findById(id);
     res.status(200).json({ status: "success", appointment: appointments });
@@ -127,20 +137,26 @@ exports.getAppointmentById = async (req, res) => {
 
 exports.updateAppointment = async (req, res) => {
   try {
-    let {appointmentTime,status} = req.body
-    let body = req.body
+    let isAdmin = req.user.role;
+    if (isAdmin === "patient") {
+      return res.status(400).json({ status: "admin not found" });
+    }
+    let { appointmentTime, status } = req.body;
+    let body = req.body;
     const id = req.params.id;
     const appointments = await appointmentModel.findByIdAndUpdate(
       id,
       { status: "completed" },
       { new: true },
       body
-    );  
+    );
     let patientId = appointments.patient;
     const userId = await userModel.findOne(patientId);
 
     send_mail.appt_Updated(userId.email);
-    res.status(200).json({ status: "Update Sucess", newAppointment: appointments });
+    res
+      .status(200)
+      .json({ status: "Update Sucess", newAppointment: appointments });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -149,6 +165,10 @@ exports.updateAppointment = async (req, res) => {
 exports.deleteAppointment = async (req, res) => {
   try {
     const id = req.params.id;
+    let isAdmin = req.user.role;
+    if (isAdmin === "patient") {
+      return res.status(400).json({ status: "admin not found" });
+    }
     const appointments = await appointmentModel.findByIdAndUpdate(
       id,
       { status: "cancelled" },
@@ -166,3 +186,18 @@ exports.deleteAppointment = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+
+// let matchConditions = {
+//   appointmentTime: { $gte: new Date() }, // Example condition (modify as needed)
+// };
+
+// console.log("<<<<", matchConditions.appointmentTime); // Now it should not be undefined
+
+// const appointments = await appointmentModel.aggregate([
+//   {
+//     $match: matchConditions,
+//   },
+// ]);
+
+// console.log("Appointments:", appointments);

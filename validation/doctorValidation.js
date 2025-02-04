@@ -24,8 +24,6 @@ const getAllDoctor = async (req, res, next) => {
       skip: Joi.number().optional(),
       limit: Joi.number().optional(),
       search: Joi.string().optional(),
-      endTime:Joi.string().optional(),
-      startTime:Joi.string().optional(),
       name:Joi.string().optional(),
       email:Joi.string().optional(),
       specialization:Joi.string().optional()

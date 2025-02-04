@@ -1,16 +1,15 @@
 const doctorModel = require("../models/doctorModel");
-const bcrypt = require("bcrypt");
-const nodemailer = require("nodemailer");
-const jwt = require("jsonwebtoken");
 const { errors } = require("../utils");
 const { mongoService, mailService } = require("../services");
 let messages = require("../config/messages.json");
-const { google } = require("googleapis");
 const { generateToken, verifyToken } = require("../middleware/authentication");
-const config = require("../config");
-const { name } = require("ejs");
 
 exports.addDoctor = async (req, res) => {
+
+ let isAdmin = req.user.role;
+ if(isAdmin ==='patient'){
+      return res.status(400).json({status:'admin not found'})
+    }
   try {
     let {
       name,
@@ -64,15 +63,22 @@ exports.addDoctor = async (req, res) => {
 
 exports.getAllDoctor = async (req, res) => {
   try {
-    let { specialization, search, startTime, endTime } = req.query;
+    let { specialization, search,} =
+      req.query;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
+   let isAdmin = req.user.role;
+ if(isAdmin ==='patient'){
+      return res.status(400).json({status:'admin not found'})
+    }
+
     let matchConditions = {
-      isDeleted: false,
-      endTime,
-      startTime,
+      isDeleted: false
     };
+
+    let g = await doctorModel.find()
+    console.log(g.availability);
 
     if (specialization) {
       matchConditions.specialization = specialization;
@@ -83,14 +89,6 @@ exports.getAllDoctor = async (req, res) => {
         { name: { $regex: search, $options: "i" } },
         { email: { $regex: search, $options: "i" } },
       ];
-    }
-
-    if (startTime) {
-      matchConditions.startTime = { $gte: new Date(startTime) };
-    }
-
-    if (endTime) {
-      matchConditions.endTime = { $lte: new Date(endTime) };
     }
 
     const doctors = await doctorModel
@@ -108,6 +106,10 @@ exports.getDoctorById = async (req, res) => {
   try {
     const id = req.params.id;
 
+   let isAdmin = req.user.role;
+ if(isAdmin ==='patient'){
+      return res.status(400).json({status:'admin not found'})
+    }
     let doctorCriteria = {
       _id: id,
       isDeleted: false,
@@ -160,9 +162,9 @@ exports.updateDoctorById = async (req, res) => {
 exports.deleteDoctorById = async (req, res) => {
   try {
     const id = req.params.id;
-    let role = req.user.role;
-    if (!role == "admin") {
-      return res.status(401).json({ status: "Admin not found" });
+   let isAdmin = req.user.role;
+ if(isAdmin ==='patient'){
+      return res.status(400).json({status:'admin not found'})
     }
 
     const doctors = await doctorModel.findByIdAndUpdate(id, {

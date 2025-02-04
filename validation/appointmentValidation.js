@@ -19,8 +19,10 @@ const getAllAppointments = async (req, res, next) => {
       skip: Joi.number().optional(),
       limit: Joi.number().optional(),
       patient: Joi.string().optional(),
-      doctor: Joi.string().optional(),
       status: Joi.string().optional(),
+      doctor: Joi.string().optional(),
+      startTime: Joi.string().optional(),
+      endTime: Joi.string().optional(),
     });
     req.query = await schema.validateAsync(req.query);
     next();

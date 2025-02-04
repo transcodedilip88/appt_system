@@ -4,6 +4,11 @@ exports.updateUserProfile = async (req, res) => {
   try {
     const id = req.params.id;
     let { name, password } = req.body;
+
+    let isAdmin = req.user.role;
+    if (isAdmin === "patient") {
+      return res.status(400).json({ status: "admin not found" });
+    }
     if (password) {
       const passwordHash = await universalFunctions.encryptData(password);
       body.password = passwordHash;
@@ -13,7 +18,7 @@ exports.updateUserProfile = async (req, res) => {
       name,
       password: body?.password,
     };
-    
+
     let body = req.body;
     const userdata = await usermodel.findByIdAndUpdate(id, updateUser, {
       new: true,
@@ -32,7 +37,10 @@ exports.getAllUser = async (req, res) => {
     let { name, search } = req.query;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
-
+    let isAdmin = req.user.role;
+    if (isAdmin === "patient") {
+      return res.status(400).json({ status: "admin not found" });
+    }
 
     console.log(req.user);
     let matchConditions = {
@@ -44,9 +52,7 @@ exports.getAllUser = async (req, res) => {
     }
 
     if (search) {
-      matchConditions.$or = [
-        { email: { $regex: search, $options: "i" } },
-      ];
+      matchConditions.$or = [{ email: { $regex: search, $options: "i" } }];
     }
 
     const documents = await usermodel
@@ -62,20 +68,23 @@ exports.getAllUser = async (req, res) => {
 exports.getUserById = async (req, res) => {
   try {
     const id = req.params.id;
-
+    let isAdmin = req.user.role;
+    if (isAdmin === "patient") {
+      return res.status(400).json({ status: "admin not found" });
+    }
     let userCriteria = {
       _id: id,
       isDeleted: false,
     };
 
-    const users = await doctorModel.findById(userCriteria)
+    const users = await doctorModel.findById(userCriteria);
 
     if (!users) {
-        throw new errors.NotFound(messages.DATA_NOT_FOUND);
+      throw new errors.NotFound(messages.DATA_NOT_FOUND);
     }
 
     let response = {
-        data: users
+      data: users,
     };
 
     res.status(200).send({ message: messages.SUCCESS, response });
@@ -87,9 +96,9 @@ exports.getUserById = async (req, res) => {
 exports.deleteUserById = async (req, res) => {
   try {
     const id = req.params.id;
-    let role = req.user.role;
-    if (role == "patient") {
-      return res.status(401).json({ status: "Admin not found" });
+    let isAdmin = req.user.role;
+    if (isAdmin === "patient") {
+      return res.status(400).json({ status: "admin not found" });
     }
 
     const userdata = await usermodel.findByIdAndUpdate(id, {

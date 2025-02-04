@@ -1,6 +1,8 @@
 const config = require("../config");
+const universalFunctions = require("../lib/universal-functions");
 const nodemailer = require("nodemailer");
 const { google } = require("googleapis");
+const jwt = require("jsonwebtoken");
 const OAuth2 = google.auth.OAuth2;
 const OAuth2_client = new OAuth2(config.clientID, config.clientSecret);
 OAuth2_client.setCredentials({ refresh_token: config.refreshToken });
@@ -93,7 +95,7 @@ async function appt_cancelled(recipient) {
     console.error("Error sending email:", error);
   }
 }
-async function login(recipient) {
+async function login(recipient,info) {
   try {
     const accessToken = await OAuth2_client.getAccessToken();
     const transport = nodemailer.createTransport({
@@ -114,7 +116,7 @@ async function login(recipient) {
       from: config.user,
       to: recipient,
       subject: "login success",
-      text: `login successfully`,
+      text: `OTP : ${info}`,
     };
 
     await transport.sendMail(mailOptions);
@@ -180,6 +182,68 @@ async function doctorApptUpcoming(recipient) {
     console.error("Error sending email:", error);
   }
 }
+
+async function forgotPassword(recipient,info) {
+  try {
+    const accessToken = await OAuth2_client.getAccessToken();
+    const transport = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
+      auth: {
+        type: "OAuth2",
+        user: config.user,
+        clientId: config.clientID,
+        clientSecret: config.clientSecret,
+        refreshToken: config.refreshToken,
+        accessToken: accessToken.token,
+      },
+    });
+
+    const mailOptions = {
+      from: config.user,
+      to: recipient,
+      subject: "forgot Password",
+      text: `click to reset passwore`,
+      html:`token : ${info}`,
+    };
+
+    await transport.sendMail(mailOptions);
+  } catch (error) {
+    console.error("Error sending email:", error);
+  }
+}
+
+async function resetPassword(recipient,info) {
+  try {
+    const accessToken = await OAuth2_client.getAccessToken();
+    const transport = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
+      auth: {
+        type: "OAuth2",
+        user: config.user,
+        clientId: config.clientID,
+        clientSecret: config.clientSecret,
+        refreshToken: config.refreshToken,
+        accessToken: accessToken.token,
+      },
+    });
+
+    const mailOptions = {
+      from: config.user,
+      to: recipient,
+      subject: "reset Password",
+      text: `resetPassword SuccessFully`,
+      html:`your password changed succless Mr.${info}`,
+    };
+
+    await transport.sendMail(mailOptions);
+  } catch (error) {
+    console.error("Error sending email:", error);
+  }
+}
 module.exports = {
   Boocked_mail,
   appt_Updated,
@@ -187,4 +251,6 @@ module.exports = {
   login,
   patientupcoming_appt,
   doctorApptUpcoming,
+  forgotPassword,
+  resetPassword
 };

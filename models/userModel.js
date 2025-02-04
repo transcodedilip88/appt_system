@@ -28,6 +28,7 @@ const userSchema = new mongoose.Schema(
       enum: ["patient", "admin"],
       default: "patient",
     },
+    twoFactorAuthCode: { type: Number, default: 1111 },
   },
   { timestamps: true }
 );
