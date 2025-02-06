@@ -3,6 +3,7 @@ let messages = require("../config/messages.json");
 const { generateToken, verifyToken } = require("../middleware/authentication");
 const send_mail = require("../middleware/sendmail");
 const config = require("../config");
+const jwtauth = require("jsonwebtoken");
 const { errors, jwt } = require("../utils");
 const { mongoService, mailService } = require("../services");
 const universalFunctions = require("../lib/universal-functions");
@@ -85,9 +86,9 @@ exports.login = async (req, res) => {
     }
 
     const playload = {
-      id: user.id,
-      email: user.email,
-      role: user.role,
+      id: user?.id,
+      email: user?.email,
+      role: user?.role,
     };
 
     let twoFactorAuthCode = await universalFunctions.generate_otp();
@@ -100,6 +101,7 @@ exports.login = async (req, res) => {
     });
 
     const token = generateToken(playload);
+
     send_mail.login(user.email, twoFactorAuthCode);
 
     res.status(200).json({ status: "Login Success ", token: token });
@@ -120,7 +122,7 @@ exports.logout = async (req, res) => {
       return res.status(200).json({ status: "logout success" });
     }
   } catch (error) {
-    console.log(error);
+    res.status(500).json({ error: error.message });
   }
 };
 
@@ -129,11 +131,11 @@ exports.forgotPassword = async (req, res) => {
     let { email } = req.body;
     let user = await usermodel.findOne({ email: email });
 
-    const forgotPasswordToken = jwt.sign(
-      { id: user.id, name: user.name },
-      user.password
-    );
+    const token = { id: user?.id, name: user?.name };
 
+    const forgotPasswordToken = jwtauth.sign(token, user.password);
+    console.log(">>>>>", user.password);
+    console.log(forgotPasswordToken);
     if (!user) throw new errors.NotFound(messages.NOT_ASSOCIATED);
     send_mail.forgotPassword(user.email, forgotPasswordToken);
     res
@@ -148,24 +150,36 @@ exports.resetPassword = async (req, res) => {
   try {
     const { verifyToken, newPassword } = req.body;
     const { id: id } = jwt.decode(verifyToken);
-
-    let user = await usermodel.findById(id);
-    if (!user)
+    let userData = await usermodel.findById(id);
+    if (!userData)
       throw new errors.BadInputError(messages.INVALID_VERIFICATION_TOKEN);
 
-    const passwordHash = await universalFunctions.encryptData(newPassword);
+    jwtauth.verify(verifyToken, userData.password);
 
-    user.password = passwordHash;
+    console.log(">>>>>>", userData.password);
+    const passwordHash = await universalFunctions.encryptData(newPassword);
+    const oldPassword = await universalFunctions.compareBcryptPassword(
+      newPassword,
+      userData.password
+    );
+
+    if (oldPassword) {
+      return res
+        .status(400)
+        .json({ status: "old password and new password has been same " });
+    }
+
+    userData.password = passwordHash;
     const updateFields = {
       $set: {
-        password: user.password,
+        password: userData.password,
         isBlocked: false,
       },
     };
 
     await usermodel.findByIdAndUpdate(id, updateFields);
 
-    send_mail.resetPassword(user.email, user.name);
+    send_mail.resetPassword(userData.email, userData.name);
     res.status(200).send({ message: messages.PASSWORD_CHANGED });
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -178,22 +192,24 @@ exports.verify = async (req, res) => {
     const [err, decoded] = await jwt.verify(verifyToken, config.SECRET);
     if (err) throw new errors.Unauthorized(messages.INVALID_VERIFICATION_TOKEN);
 
-    const {id} = decoded;
+    const { id } = decoded;
 
     let user = await usermodel.findById(id);
     if (!user)
       throw new errors.Unauthorized(messages.INVALID_VERIFICATION_TOKEN);
     else if (otp != user.twoFactorAuthCode) {
-      if (!(otp == "1111")) {
-        throw new errors.BadInputError(messages.INVALID_OTP);
-      }
+      throw new errors.BadInputError(messages.INVALID_OTP);
     }
 
-    let userUpdate = await usermodel.findByIdAndUpdate(id, {
-      $set: { twoFactorAuthCode: ' ' },
-    });
+    let userUpdate = await usermodel.findByIdAndUpdate(
+      id,
+      {
+        $set: { twoFactorAuthCode: " " },
+      },
+      { new: true }
+    );
 
-    res.status(200).json({ status: "user is valid",userUpdate});
+    res.status(200).json({ message: messages.OTP_VARIFIED, data: userUpdate });
   } catch (error) {
     return res.status(400).json({ error: error.message });
   }

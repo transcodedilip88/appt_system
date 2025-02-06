@@ -62,7 +62,6 @@ exports.getAllAppointments = async (req, res) => {
         $lte: new Date(endTime),
       };
     }
-    console.log("<<<<", matchConditions);
     if (patient) {
       matchConditions.patient = new mongoose.Types.ObjectId(patient);
     }
@@ -186,18 +185,3 @@ exports.deleteAppointment = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
-
-// let matchConditions = {
-//   appointmentTime: { $gte: new Date() }, // Example condition (modify as needed)
-// };
-
-// console.log("<<<<", matchConditions.appointmentTime); // Now it should not be undefined
-
-// const appointments = await appointmentModel.aggregate([
-//   {
-//     $match: matchConditions,
-//   },
-// ]);
-
-// console.log("Appointments:", appointments);
