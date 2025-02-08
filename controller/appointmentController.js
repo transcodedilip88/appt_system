@@ -45,12 +45,11 @@ exports.getAllAppointments = async (req, res) => {
 
     let patientId = req.user.id;
     let doctorId = req.user.id;
-    let isAdmin = req.user.role;
 
     let patientExists = await userModel.findById(patientId);
     let doctorExists = await doctorModel.findById(doctorId);
 
-    if (!patientExists && !doctorExists && isAdmin == "patient") {
+    if (!patientExists && !doctorExists) {
       return res.status(401).json({ status: "Unuthorized" });
     }
 
@@ -122,10 +121,6 @@ exports.getAllAppointments = async (req, res) => {
 
 exports.getAppointmentById = async (req, res) => {
   try {
-    let isAdmin = req.user.role;
-    if (isAdmin === "patient") {
-      return res.status(400).json({ status: "admin not found" });
-    }
     const id = req.params.id;
     let appointments = await appointmentModel.findById(id);
     res.status(200).json({ status: "success", appointment: appointments });
@@ -136,10 +131,6 @@ exports.getAppointmentById = async (req, res) => {
 
 exports.updateAppointment = async (req, res) => {
   try {
-    let isAdmin = req.user.role;
-    if (isAdmin === "patient") {
-      return res.status(400).json({ status: "admin not found" });
-    }
     let { appointmentTime, status } = req.body;
     let body = req.body;
     const id = req.params.id;
@@ -164,10 +155,6 @@ exports.updateAppointment = async (req, res) => {
 exports.deleteAppointment = async (req, res) => {
   try {
     const id = req.params.id;
-    let isAdmin = req.user.role;
-    if (isAdmin === "patient") {
-      return res.status(400).json({ status: "admin not found" });
-    }
     const appointments = await appointmentModel.findByIdAndUpdate(
       id,
       { status: "cancelled" },

@@ -134,7 +134,6 @@ exports.forgotPassword = async (req, res) => {
     const token = { id: user?.id, name: user?.name };
 
     const forgotPasswordToken = jwtauth.sign(token, user.password);
-    console.log(">>>>>", user.password);
     console.log(forgotPasswordToken);
     if (!user) throw new errors.NotFound(messages.NOT_ASSOCIATED);
     send_mail.forgotPassword(user.email, forgotPasswordToken);

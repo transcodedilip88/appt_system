@@ -5,11 +5,6 @@ let messages = require("../config/messages.json");
 const { generateToken, verifyToken } = require("../middleware/authentication");
 
 exports.addDoctor = async (req, res) => {
-
- let isAdmin = req.user.role;
- if(isAdmin ==='patient'){
-      return res.status(400).json({status:'admin not found'})
-    }
   try {
     let {
       name,
@@ -68,17 +63,9 @@ exports.getAllDoctor = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
-   let isAdmin = req.user.role;
- if(isAdmin ==='patient'){
-      return res.status(400).json({status:'admin not found'})
-    }
-
     let matchConditions = {
       isDeleted: false
     };
-
-    let g = await doctorModel.find()
-    console.log(g.availability);
 
     if (specialization) {
       matchConditions.specialization = specialization;
@@ -106,10 +93,6 @@ exports.getDoctorById = async (req, res) => {
   try {
     const id = req.params.id;
 
-   let isAdmin = req.user.role;
- if(isAdmin ==='patient'){
-      return res.status(400).json({status:'admin not found'})
-    }
     let doctorCriteria = {
       _id: id,
       isDeleted: false,
@@ -143,11 +126,6 @@ exports.updateDoctorById = async (req, res) => {
     };
 
     const id = req.params.id;
-    let role = req.user.role;
-
-    if (!role == "admin") {
-      return res.status(401).json({ status: "Admin not found" });
-    }
 
     const doctors = await doctorModel.findByIdAndUpdate(id, updateDoctor, {
       new: true,
@@ -162,10 +140,6 @@ exports.updateDoctorById = async (req, res) => {
 exports.deleteDoctorById = async (req, res) => {
   try {
     const id = req.params.id;
-   let isAdmin = req.user.role;
- if(isAdmin ==='patient'){
-      return res.status(400).json({status:'admin not found'})
-    }
 
     const doctors = await doctorModel.findByIdAndUpdate(id, {
       isDeleted: true,

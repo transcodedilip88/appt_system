@@ -5,10 +5,6 @@ exports.updateUserProfile = async (req, res) => {
     const id = req.params.id;
     let { name, password } = req.body;
 
-    let isAdmin = req.user.role;
-    if (isAdmin === "patient") {
-      return res.status(400).json({ status: "admin not found" });
-    }
     if (password) {
       const passwordHash = await universalFunctions.encryptData(password);
       body.password = passwordHash;
@@ -38,11 +34,7 @@ exports.getAllUser = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     let isAdmin = req.user.role;
-    if (isAdmin === "patient") {
-      return res.status(400).json({ status: "admin not found" });
-    }
 
-    console.log(req.user);
     let matchConditions = {
       isDeleted: false,
     };
@@ -68,10 +60,6 @@ exports.getAllUser = async (req, res) => {
 exports.getUserById = async (req, res) => {
   try {
     const id = req.params.id;
-    let isAdmin = req.user.role;
-    if (isAdmin === "patient") {
-      return res.status(400).json({ status: "admin not found" });
-    }
     let userCriteria = {
       _id: id,
       isDeleted: false,
@@ -96,11 +84,6 @@ exports.getUserById = async (req, res) => {
 exports.deleteUserById = async (req, res) => {
   try {
     const id = req.params.id;
-    let isAdmin = req.user.role;
-    if (isAdmin === "patient") {
-      return res.status(400).json({ status: "admin not found" });
-    }
-
     const userdata = await usermodel.findByIdAndUpdate(id, {
       isBlocked: true,
       isDeleted: true,
