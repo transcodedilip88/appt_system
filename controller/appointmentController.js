@@ -7,7 +7,7 @@ const { mongoose } = require("mongoose");
 
 exports.bookAppointment = async (req, res) => {
   try {
-    let { doctor, appointmentTime, updatedby, createdBy } = req.body;
+    let { doctor, appointmentTime, updatedby, createdBy,patientd } = req.body;
     let patientId = req.user.id;
     let currectTime = new Date();
     if (appointmentTime <= currectTime) {
